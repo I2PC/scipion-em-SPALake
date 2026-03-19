@@ -1,1 +1,1 @@
-PLugin to collect data from a SPA workflow and push it to the database SPA-Lake
+PLugin to collect data from a SPA workflow and push it to the database SPALake

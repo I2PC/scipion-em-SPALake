@@ -21,7 +21,7 @@ Homepage = "https://github.com/I2PC/scipion-em-SPALake"
 Issues = "https://github.com/I2PC/scipion-em-SPALake/issues"
 
 [tool.setuptools.dynamic]
-version = {attr = "SPALake.version.__version__"}
+version = {attr = "SPALake.__version__"}
 dependencies = {file = ["requirements.txt"]}
 
 [project.entry-points."pyworkflow.plugin"]

@@ -29,7 +29,7 @@ from .constants import *
 
 __version__ = "3.0.1"  # plugin version
 _logo = "icon.png"
-#_references = ['you2019']
+_references = ['you2019']
 
 
 class Plugin(pwem.Plugin):
@@ -38,6 +38,6 @@ class Plugin(pwem.Plugin):
     def getEnviron(cls):
         pass
 
-
+    @classmethod
     def _defineVariables(cls):
         pass
