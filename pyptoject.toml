@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "scipion-em-SPA-Lake"
+dynamic = ["version", "dependencies"]
+
+authors = [
+    {name = "Alberto Garcia Mena", email = "alberto.garcia@cnb.csic.es"},
+]
+
+description = "PLugin to collect data from a SPA workflow and push it to the database SPA-Lake"
+readme = "README.md"
+requires-python = ">=3.8"
+keywords = ["scipion electron-microscopy cryo-em structural-biology image-processing scipion-3.0 SPA-Lake"]
+license = {text = "GNU General Public License v3 (GPLv3)"}
+
+[project.urls]
+Homepage = "https://github.com/I2PC/scipion-em-SPA-Lake"
+Issues = "https://github.com/I2PC/scipion-em-SPA-Lake/issues"
+
+[tool.setuptools.dynamic]
+version = {attr = "xmipp3.version.__version__"}
+dependencies = {file = ["requirements.txt"]}
+
+[project.entry-points."pyworkflow.plugin"]
+SPA-Lake = "SPA-Lake"
+
+[tool.setuptools.package-data]
+xmipp3 = ["protocols.conf"]
