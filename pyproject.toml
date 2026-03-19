@@ -21,11 +21,11 @@ Homepage = "https://github.com/I2PC/scipion-em-SPA-Lake"
 Issues = "https://github.com/I2PC/scipion-em-SPA-Lake/issues"
 
 [tool.setuptools.dynamic]
-version = {attr = "xmipp3.version.__version__"}
+version = {attr = "SPALake.version.__version__"}
 dependencies = {file = ["requirements.txt"]}
 
 [project.entry-points."pyworkflow.plugin"]
 SPALake = "SPALake"
 
 [tool.setuptools.package-data]
-xmipp3 = ["protocols.conf"]
+SPALake = ["protocols.conf"]
