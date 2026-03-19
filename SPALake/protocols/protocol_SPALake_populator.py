@@ -35,7 +35,7 @@ from pyworkflow.protocol import getUpdatedProtocol
 
 
 class spaLakePopulator(EMProtocol):
-    _label = 'This protocol will collect the main data from the SPA workflow and push to the SPA-Lake dataBase those data'
+    _label = 'This protocol will collect the main data from the SPA workflow and push to the SPALake dataBase those data'
     _devStatus = BETA
 
     def __init__(self, **kwargs):
