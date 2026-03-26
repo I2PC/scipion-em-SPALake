@@ -23,15 +23,16 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
-import os
 
-import pyworkflow.protocol.constants as cons
 from pyworkflow.utils import Message
 from pyworkflow import BETA, UPDATED, NEW, PROD
 import pyworkflow.utils as pwutils
 import pyworkflow.protocol.params as params
 from pwem.protocols import EMProtocol
 from pyworkflow.protocol import getUpdatedProtocol
+
+#External
+import os
 import random
 import argparse
 import tifffile as tiff
@@ -42,9 +43,8 @@ import shutil
 import os
 from PIL import Image
 import mrcfile
-import os
 
-SAMPLE_SIZE = 40
+SAMPLE_SIZE = 20
 FRAMES_NUM_EER = 50
 NORMALIZATION_MAX = 10.0
 RESIZE_X = 3680
@@ -124,28 +124,22 @@ class spaLakePopulator(EMProtocol):
                        label="Total Classes2D ",
                        help='Set of the Classes2D ')
         form.addParam('goodClassesOrigin', params.EnumParam, default=0,
-                      choices=['Xmipp/Relion', 'Cryoasses', 'Manual'],
+                      choices=['Xmipp/Relion/Manual', 'Cryoasses'],
                       display=params.EnumParam.DISPLAY_HLIST,
                       label='Protocol generates the good 2D classes',
                       help='Select the protocol the good classes come from. Xmipp and Relion generates setOfClasses2D, Cryoasses SetOfAverages, manual selection generates SetOfClasses2D.')
-        form.addParam('goodClasses2DXmippRelion', params.PointerParam,
+        form.addParam('goodClasses2DXmippRelionManual', params.PointerParam,
                        condition='goodClassesOrigin==0',
                        pointerClass='SetOfClasses2D',
                        allowsNull=True,
                        label="Good Classes2D from Relion",
-                       help='Set of good Classes2D calculated by Relion ranker')
+                       help='Set of good Classes2D calculated by Xmipp, Relion ranker or manual selection')
         form.addParam('goodClasses2DCryoasses', params.PointerParam,
                        condition='goodClassesOrigin==1',
                        pointerClass='SetOfAverages',
                        allowsNull=True,
                        label="Good Classes2D from Cryoasses",
                        help='Set of good Classes2D calculated by Cryoasses ranker')
-        form.addParam('goodClasses2DManual', params.PointerParam,
-                      condition='goodClassesOrigin==2',
-                      pointerClass='SetOfClasses2D',
-                      allowsNull=True,
-                      label="Good Classes2D from manual selection",
-                      help='Set of good Classes2D from manual selection (protUserSubset')
         form.addParam('classes3D', params.PointerParam,
                       pointerClass='SetOfClasses3D',
                       allowsNull=True,
@@ -223,7 +217,6 @@ class spaLakePopulator(EMProtocol):
 
                 if "goodClasses" in listObjects:
                         collectGood2DClasses = self._insertFunctionStep(self.collectWithGood2DClasses,
-                                                                        listObjects,
                                                                         prerequisites=[collectCTF],
                                                                         needsGPU=False)
                 elif "TotalClasses2D" in listObjects:
@@ -280,12 +273,16 @@ class spaLakePopulator(EMProtocol):
         self.extension = movieToExtract.getBaseName().split('.')[-1]
 
         # FRAMES
-        self.shapeFrame = []
+        self.frameDict = {}
         for m in self.selectedMovies:
             t0 = time.time()
             frame, frameResizedPath = self.frameExtraction(m)
             t1 = time.time()
-            self.shapeFrame.append(self.frameShaping(frame, frameResizedPath))
+            frame = self.frameShaping(frame, frameResizedPath)
+            self.frameDict[os.path.basename(frameResizedPath)] = {
+                'obj': frame,
+                'lake_ID': None
+            }
             t2 = time.time()
             #print(f'Time frameExtraction: {round(t1-t0,1)}s   TimeResize: {round(t2-t1, 1)}s\n')
 
@@ -308,25 +305,23 @@ class spaLakePopulator(EMProtocol):
                 'lake_ID': None
             }
         atlasDict = {}
-        for g in setOfAtlas:
-            gridsDict[g.getAtlasId()] = {
-                'obj': g,
+        for a in setOfAtlas:
+            atlasDict[a.getAtlasId()] = {
+                'obj': a,
                 'lake_ID': None
             }
         squareDict = {}
-        for g in setOfSquares:
-            squareDict[g.getSquareId()] = {
-                'obj': g,
+        for s in setOfSquares:
+            squareDict[s.getSquareId()] = {
+                'obj': s,
                 'lake_ID': None
             }
         holeDict = {}
-        for g in setOfHoles:
-            holeDict[g.getHoleId()] = {
-                'obj': g,
+        for h in setOfHoles:
+            holeDict[h.getHoleId()] = {
+                'obj': h,
                 'lake_ID': None
             }
-
-
 
     def collectMicrographs(self):
         '''
@@ -340,25 +335,34 @@ class spaLakePopulator(EMProtocol):
         setOfMics = self.micrographs.get()
         self.micsDict = {}
         for m in self.moviesDict.values():
-            mic = setOfMics.getItem('_micName', m.getBaseName())
-            self.micsDict[m.getMicName()] = {
-                'obj': mic,
-                'lake_ID': None
-            }
-            shutil.copy2(os.path.join(os.getcwd(), mic.getFileName()), os.path.join(self.micsPath, mic.getBaseName()))
+            try:
+                mic = setOfMics.getItem('_micName', m['obj'].getBaseName())
+                self.micsDict[mic.getMicName()] = {
+                    'obj': mic,
+                    'lake_ID': None
+                }
+                shutil.copy2(os.path.join(os.getcwd(), mic.getFileName()), os.path.join(self.micsPath, mic.getBaseName()))
+            except UnboundLocalError:
+                self.info(f"Micrograph from movie {m['obj'].getBaseName()} not available")
+
 
     def collectCTF(self):
         self.info('\n-----------------\nCollecting CTFs...')
 
         setOfCTFs= self.CTF.get()
         self.CTFDict = {}
-        for m in self.micsDict.values():
-            ctf = setOfCTFs.getItem('_micObj._micName', m.getBaseName())
-            self.CTFDict[m.getMicName()] = {
-                'obj': ctf,
-                'lake_ID': None
-            }
-            shutil.copy2(os.path.join(os.getcwd(), ctf.getPsdFile()), os.path.join(self.ctfPath, os.path.basename(ctf.getPsdFile())))
+        for mic in self.micsDict.values():
+            try:
+                self.info(mic['obj'].getFileName())
+                ctf = setOfCTFs.getItem('_micObj._filename', mic['obj'].getFileName())
+                self.CTFDict[mic['obj'].getMicName()] = {
+                    'obj': ctf,
+                    'lake_ID': None
+                }
+                shutil.copy2(os.path.join(os.getcwd(), ctf.getPsdFile()), os.path.join(self.ctfPath, os.path.basename(ctf.getPsdFile())))
+            except UnboundLocalError:
+                self.info(f"CTF from micrograph {mic['obj'].getFileName()} not available")
+
 
 
     def collectCoords(self):
@@ -378,7 +382,11 @@ class spaLakePopulator(EMProtocol):
 
     def collectWithGood2DClasses(self):
         self.info('\n-----------------\nCollecting collectWithGood2DClasses...')
-
+        setOf2DClasses = self.TotalClasses2D.get()
+        if self.goodClassesOrigin.get() == 0:
+            setOfGood2D = self.goodClasses2DXmippRelionManual.get()
+        else:
+            setOfGood2D = self.goodClasses2DCryoasses.get()
 
     def collectVolume(self):
         pass
@@ -439,6 +447,7 @@ class spaLakePopulator(EMProtocol):
             if os.path.exists(nameFramePath):
                 os.remove(nameFramePath)
         elif self.extension in ["tif", "tiff"]:
+            #TODO fliped sometimes, review and fix
             frameResizedPath = os.path.join(self.frameResizedPath, movie.getBaseName().replace('.tif', '_frameResized.tif'))
             with tiff.TiffFile(pathMovie) as tif:
                 frame = tif.pages[frame_index].asarray().astype(np.uint8)
@@ -493,6 +502,7 @@ class spaLakePopulator(EMProtocol):
             compression=compression,
             compressionargs=compressionargs,
         )
+        return normFrame
 
     # ----------GENERAL-UTILS
 
